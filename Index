@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HIA Dashboard — DOH Health Promotion Bureau</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Inter:wght=400;500;600;700&display=swap" rel="stylesheet">
+<!-- Leaflet.js CSS for OpenStreetMap Layering -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --teal:#0F4C5C;--teal-md:#1A6678;--teal-lt:#E8F4F7;
+  --slate:#1E293B;--slate-md:#475569;--slate-lt:#94A3B8;
+  --paper:#F8FAFC;--white:#FFFFFF;--border:#E2E8F0;
+  --amber:#D97706;--amber-lt:#FEF3C7;
+  --emerald:#059669;--emerald-lt:#D1FAE5;
+  --red:#DC2626;--red-lt:#FEE2E2;
+  --blue:#2563EB;--blue-lt:#DBEAFE;
+  --violet:#7C3AED;--violet-lt:#EDE9FE;
+  --shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+  --shadow-md:0 4px 6px -1px rgba(0,0,0,.08),0 2px 4px -1px rgba(0,0,0,.04);
+  --sidebar-w:220px;
+}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--paper);color:var(--slate);font-size:14px;line-height:1.5;min-height:100vh}
+
+.sidebar{width:var(--sidebar-w);min-height:100vh;background:var(--teal);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:100;transition:transform .25s ease}
+.sidebar.collapsed{transform:translateX(calc(-1 * var(--sidebar-w)))}
+.sidebar-brand{padding:20px 18px 16px;border-bottom:1px solid rgba(255,255,255,.12)}
+.brand-mark{width:36px;height:36px;border:2px solid rgba(255,255,255,.6);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'DM Serif Display',serif;font-size:13px;color:#fff;margin-bottom:10px}
+.brand-name{font-family:'DM Serif Display',serif;font-size:16px;color:#fff;line-height:1.2}
+.brand-sub{font-size:10px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.08em;margin-top:2px}
+
+.sidebar-actions{padding:14px 18px 4px}
+.btn-add-proj{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;background:var(--emerald);color:#fff;border:none;border-radius:6px;padding:10px 12px;font-size:12.5px;font-weight:600;cursor:pointer;box-shadow:var(--shadow);transition:background .15s}
+.btn-add-proj:hover{background:#047857}
+.btn-add-proj svg{width:15px;height:15px}
+
+.sidebar-nav{padding:4px 0 16px;flex:1;overflow-y:auto}
+.nav-section{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.35);padding:14px 18px 6px}
+.nav-item{display:flex;align-items:center;gap:9px;padding:8px 18px;font-size:13px;color:rgba(255,255,255,.7);cursor:pointer;transition:background .15s,color .15s;border-left:2px solid transparent;user-select:none}
+.nav-item:hover,.nav-item.active{background:rgba(255,255,255,.08);color:#fff;border-left-color:rgba(255,255,255,.5)}
+.nav-item svg{width:15px;height:15px;opacity:.7;flex-shrink:0}
+.nav-item.active svg{opacity:1}
+.sidebar-footer{padding:16px 18px;border-top:1px solid rgba(255,255,255,.1)}
+.hiaaps-link{display:flex;align-items:center;gap:8px;padding:9px 12px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:6px;text-decoration:none;color:#fff;font-size:12px;font-weight:600;transition:background .15s}
+.hiaaps-link:hover{background:rgba(255,255,255,.18)}
+.hiaaps-link svg{width:14px;height:14px;flex-shrink:0}
+
+.main{margin-left:var(--sidebar-w);min-height:100vh;display:flex;flex-direction:column;transition:margin-left .25s ease}
+.main.full{margin-left:0}
+.topbar{background:var(--white);border-bottom:1px solid var(--border);padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;box-shadow:var(--shadow)}
+.topbar-left{display:flex;align-items:center;gap:14px}
+.toggle-btn{width:36px;height:36px;border:1px solid var(--border);background:var(--white);border-radius:7px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--teal);transition:background .15s,border-color .15s;flex-shrink:0}
+.toggle-btn:hover{background:var(--teal-lt);border-color:var(--teal-md)}
+.toggle-btn svg{width:18px;height:18px}
+.topbar-title{font-family:'DM Serif Display',serif;font-size:18px;color:var(--teal)}
+.topbar-right{display:flex;align-items:center;gap:14px}
+.ts{font-size:12px;color:var(--slate-lt)}
+.refresh-btn{font:600 12px 'Inter',sans-serif;color:var(--teal-md);background:var(--teal-lt);border:1px solid #BFE0E8;border-radius:5px;padding:6px 13px;cursor:pointer;transition:background .15s}
+.refresh-btn:hover{background:#D6EBF0}
+
+/* Realignment Layout Strategy */
+.content{padding:24px;display:flex;flex-direction:column;gap:24px;}
+.top-visualization-grid {display:grid;grid-template-columns:1fr 420px;gap:20px;align-items:stretch;}
+
+/* FIXED LINE BELOW: Swapped justify-content: space-between; with flex-start to remove vertical gap */
+.visual-left-stack {display:flex;flex-direction:column;gap:20px;min-width:0;justify-content:flex-start;}
+
+.bottom-registry-box {width:100%;min-width:0;}
+
+.kpi-strip{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+.kpi{background:var(--white);border:1px solid var(--border);border-radius:8px;padding:14px 16px;box-shadow:var(--shadow)}
+.kpi-val{font-family:'DM Serif Display',serif;font-size:28px;color:var(--teal);line-height:1}
+.kpi-lbl{font-size:11px;color:var(--slate-md);text-transform:uppercase;letter-spacing:.07em;margin-top:4px}
+.kpi.highlight .kpi-val{color:var(--emerald)}
+.kpi.warn .kpi-val{color:var(--amber)}
+
+.section-head{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.section-head h2{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--teal);white-space:nowrap}
+.section-head::after{content:'';flex:1;height:1px;background:var(--border)}
+
+.pipeline{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.stage-col{background:var(--white);border:1px solid var(--border);border-radius:8px;overflow:hidden;box-shadow:var(--shadow);min-width:0}
+.stage-head-bar{padding:10px 12px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:6px}
+.stage-head-bar h3{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--slate-md);line-height:1.3}
+.stage-count{font-size:12px;font-weight:700;background:var(--teal-lt);color:var(--teal);padding:2px 7px;border-radius:99px;flex-shrink:0}
+.stage-body{padding:8px;display:flex;flex-direction:column;gap:6px;min-height:80px}
+
+.pcard{border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:5px;padding:8px 10px;cursor:pointer;background:#fff;transition:box-shadow .12s,transform .1s;position:relative}
+.pcard:hover{box-shadow:var(--shadow-md);transform:translateY(-1px)}
+.pcard.exempt{border-left-color:var(--violet)}
+.pcard.flagged{border-left-color:var(--amber)}
+.pcard.me{border-left-color:var(--emerald)}
+.pcard-code{font-size:10px;font-weight:700;color:var(--teal);font-variant-numeric:tabular-nums;letter-spacing:.02em}
+.pcard-code.exempt{color:var(--violet)}
+.pcard-code.me{color:var(--emerald)}
+.pcard-name{font-size:11.5px;font-weight:600;color:var(--slate);line-height:1.3;margin:2px 0}
+.pcard-meta{font-size:10px;color:var(--slate-lt);line-height:1.3}
+.pcard-tags{display:flex;flex-wrap:wrap;gap:3px;margin-top:5px}
+.tag{font-size:9px;font-weight:600;padding:1.5px 6px;border-radius:99px;text-transform:uppercase;letter-spacing:.03em}
+.tag-hia{background:var(--teal-lt);color:var(--teal-md)}
+.tag-exempt{background:var(--violet-lt);color:var(--violet)}
+.empty-col{font-size:12px;color:var(--slate-lt);font-style:italic;padding:10px;text-align:center}
+
+table{width:100%;border-collapse:collapse;background:var(--white);border:1px solid var(--border);border-radius:8px;overflow:hidden;box-shadow:var(--shadow);font-size:12.5px}
+thead tr{background:var(--paper);border-bottom:2px solid var(--teal)}
+th{padding:10px 12px;text-align:left;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--slate-md);white-space:nowrap}
+td{padding:11px 12px;border-bottom:1px solid var(--border);vertical-align:top;line-height:1.45}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--teal-lt)}
+td a.code-link{font-weight:700;color:var(--teal);text-decoration:none;font-size:11.5px;cursor:pointer}
+td a.code-link:hover{text-decoration:underline}
+
+.split-header-row {background: #f1f5f9 !important; font-weight:700; color:var(--teal); text-transform:uppercase; font-size:11px; letter-spacing:0.05em;}
+.split-header-row td {padding:8px 12px; border-bottom: 2px solid #cbd5e1; color: var(--teal-md)}
+
+.proj-note-line {font-size:11px;color:var(--slate-md);margin-top:4px;font-style:italic;background:#f1f5f9;padding:4px 8px;border-radius:4px;border-left:2px solid var(--slate-lt)}
+.proj-ts-line {font-size:10.5px;color:var(--slate-md);margin-top:5px;display:flex;flex-wrap:wrap;gap:8px 14px;}
+.ts-pill {background:#e2e8f0;padding:1px 6px;border-radius:3px;font-weight:500;color:var(--slate)}
+
+.map-panel{background:var(--white);border:1px solid var(--border);border-radius:8px;padding:16px;box-shadow:var(--shadow);display:flex;flex-direction:column;justify-content:between;}
+.map-panel h2{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--teal);margin-bottom:4px}
+.map-panel .map-sub{font-size:11px;color:var(--slate-lt);margin-bottom:12px}
+#map-container{width:100%;height:420px;border-radius:6px;border:1px solid var(--border);z-index:1}
+.map-legend{margin:12px 0 16px;display:grid;grid-template-columns:1fr 1fr;gap:6px;border-bottom:1px dashed var(--border);padding-bottom:12px;}
+.legend-item{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--slate-md)}
+.legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;border:1.5px solid #fff;box-shadow:0 0 0 1px var(--border)}
+
+/* Calendar & Commitment Widget Styles */
+.calendar-widget {margin-top:4px;}
+.cal-ctrl {display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+.cal-month-title {font-size:12px;font-weight:700;color:var(--slate);}
+.cal-btn {background:none;border:1px solid var(--border);border-radius:4px;padding:2px 6px;cursor:pointer;font-size:11px;font-weight:600;color:var(--slate-md);}
+.cal-btn:hover {background:var(--paper);color:var(--teal);}
+.cal-grid {display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center;font-size:11px;}
+.cal-day-lbl {font-weight:700;color:var(--slate-lt);padding-bottom:2px;}
+.cal-cell {padding:5px 0;border-radius:4px;color:var(--slate-md);font-weight:500;position:relative;}
+.cal-cell.today {background:var(--teal-lt);color:var(--teal);font-weight:700;outline:1px solid var(--teal-md);}
+.cal-cell.has-event::after {content:'';position:absolute;bottom:2px;left:50%;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;background:var(--red);}
+
+.commitments-container {margin-top:14px;max-height:190px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;}
+.commitment-card {background:var(--paper);border:1px solid var(--border);border-left:3px solid var(--blue);border-radius:4px;padding:6px 8px;display:flex;flex-direction:column;gap:2px;}
+.commit-meta {display:flex;justify-content:space-between;align-items:center;font-size:10px;}
+.commit-date {color:var(--slate-lt);font-weight:600;}
+.commit-tag {font-size:9px;font-weight:700;padding:0.5px 5px;border-radius:3px;text-transform:uppercase;}
+.tag-urgent {background:var(--red-lt);color:var(--red);}
+.tag-review {background:var(--violet-lt);color:var(--violet);}
+.tag-meeting {background:var(--amber-lt);color:var(--amber);}
+.commit-title {font-size:11.5px;font-weight:600;color:var(--slate);}
+
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:200;align-items:center;justify-content:center;padding:20px}
+.modal-overlay.open{display:flex}
+.modal{background:#fff;border-radius:10px;width:680px;max-width:100%;max-height:92vh;overflow-y:auto;box-shadow:0 20px 40px rgba(0,0,0,.2)}
+.modal-header{padding:20px 24px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:flex-start;background:var(--paper);border-top-left-radius:10px;border-top-right-radius:10px}
+.modal-header h2{font-family:'DM Serif Display',serif;font-size:19px;color:var(--teal);line-height:1.2}
+.modal-close{background:none;border:none;font-size:24px;color:var(--slate-lt);cursor:pointer;padding:0;line-height:1}
+.modal-close:hover{color:var(--slate)}
+.modal-body{padding:20px 24px}
+.modal-code{font-size:11px;font-weight:700;color:var(--teal);font-variant-numeric:tabular-nums;margin-bottom:4px}
+.field-group{margin-bottom:16px}
+.field-group label.fl{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--slate-md);margin-bottom:6px}
+select,textarea,input[type=text],input[type=number],input[type=datetime-local]{font-family:'Inter',sans-serif;font-size:13px;padding:8px 10px;border:1px solid var(--border);border-radius:6px;width:100%;color:var(--slate);background:#fff;transition:border-color .15s}
+select:focus,textarea:focus,input:focus{outline:none;border-color:var(--teal-md);box-shadow:0 0 0 3px rgba(15,76,92,.1)}
+textarea{resize:vertical;min-height:60px}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.check-row{font-size:12.5px;font-weight:400;text-transform:none;letter-spacing:0;display:flex;align-items:center;gap:8px;color:var(--slate);cursor:pointer}
+.check-row input{width:auto}
+
+.tracking-stepper{background:var(--paper);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-bottom:16px;display:flex;flex-direction:column;gap:12px}
+.stepper-header-wrap {display:flex;justify-content:space-between;align-items:center;}
+.stepper-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--teal);flex:1;}
+.btn-snap-ts {background:var(--teal-lt);color:var(--teal-md);border:1px solid #BFE0E8;font-size:11px;font-weight:600;padding:2px 8px;border-radius:4px;cursor:pointer;}
+.btn-snap-ts:hover {background:#D6EBF0}
+.step-item{display:grid;grid-template-columns:24px 1fr;gap:10px;align-items:start;position:relative}
+.step-icon{width:20px;height:20px;border-radius:50%;background:var(--border);color:var(--slate-md);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;z-index:2}
+.step-item.filled .step-icon{background:var(--teal-lt);color:var(--teal-md);border:1px solid var(--teal-md)}
+.step-content{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.step-label{font-size:12px;font-weight:600;color:var(--slate-md)}
+.step-input-wrap{width:220px;flex-shrink:0}
+
+.custom-ts-row {background:#fff; border:1px dashed var(--border); border-radius:6px; padding:8px 10px; display:flex; justify-content:space-between; align-items:center; gap:8px;}
+.custom-ts-label {font-size:11.5px; font-weight:600; color:var(--slate-md);}
+.custom-ts-val {font-size:11px; color:var(--teal); background:var(--teal-lt); padding:2px 6px; border-radius:4px; font-weight:700;}
+.btn-del-custom-ts {background:none; border:none; color:var(--red); font-size:14px; cursor:pointer;}
+
+.add-custom-ts-box {background:#edf2f7; border-radius:6px; padding:10px; display:grid; grid-template-columns:1fr 1fr auto; gap:8px; align-items:end; margin-top:4px;}
+
+.modal-footer{padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:12px}
+.btn{font:600 13px 'Inter',sans-serif;padding:9px 18px;border-radius:6px;cursor:pointer;border:none;transition:background .15s,transform .1s}
+.btn:active{transform:scale(.98)}
+.btn-primary{background:var(--teal);color:#fff}
+.btn-primary:hover{background:var(--teal-md)}
+.btn-ghost{background:var(--paper);color:var(--slate-md);border:1px solid var(--border)}
+.btn-ghost:hover{background:var(--border)}
+
+.edit-icon-btn {background:none;border:none;cursor:pointer;font-size:14px;}
+.leaflet-popup-content{font-family:'Inter',sans-serif;font-size:12px;line-height:1.4}
+</style>
+</head>
+<body>
+
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-brand">
+    <div class="brand-mark">HIA</div>
+    <div class="brand-name">Health Impact Assessment</div>
+    <div class="brand-sub">DOH · Health Promotion Bureau</div>
+  </div>
+  <div class="sidebar-actions">
+    <button class="btn-add-proj" onclick="openNewProjectModal()">
+      <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"/></svg>
+      Add New Project
+    </button>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-section">View</div>
+    <div class="nav-item active" data-nav onclick="showView('dashboard',this)">
+      <svg viewBox="0 0 20 20" fill="currentColor"><path d="M3 4a1 1 0 011-1h3a1 1 0 011 1v3a1 1 0 01-1 1H4a1 1 0 01-1-1V4zm0 7a1 1 0 011-1h3a1 1 0 011 1v5a1 1 0 01-1 1H4a1 1 0 01-1-1v-5zm7-7a1 1 0 011-1h5a1 1 0 011 1v5a1 1 0 01-1 1h-5a1 1 0 01-1-1V4zm0 9a1 1 0 011-1h5a1 1 0 011 1v3a1 1 0 01-1 1h-5a1 1 0 01-1-1v-3z"/></svg>
+      Dashboard
+    </div>
+    <div class="nav-item" data-nav onclick="showView('table',this)">
+      <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5 4a3 3 0 00-3 3v6a3 3 0 003 3h10a3 3 0 003-3V7a3 3 0 00-3-3H5zm-1 9v-1h5v2H5a1 1 0 01-1-1zm7 1h4a1 1 0 001-1v-1h-5v2zm0-4h5V8h-5v2zM9 8H4v2h5V8z" clip-rule="evenodd"/></svg>
+      All Projects
+    </div>
+    <div class="nav-section">Focal</div>
+    <div class="nav-item active" data-focal onclick="filterFocal('ALL',this)">All Focals</div>
+    <div class="nav-item" data-focal onclick="filterFocal('JMDP',this)">Michael (JMDP)</div>
+    <div class="nav-item" data-focal onclick="filterFocal('LACM',this)">Lanze (LACM)</div>
+  </nav>
+  <div class="sidebar-footer">
+    <a href="https://hiaaps.doh.gov.ph" target="_blank" rel="noopener" class="hiaaps-link">
+      <svg viewBox="0 0 20 20" fill="currentColor"><path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z"/><path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z"/></svg>
+      Open HIAApS
+    </a>
+  </div>
+</aside>
+
+<main class="main" id="main">
+  <div class="topbar">
+    <div class="topbar-left">
+      <button class="toggle-btn" id="toggleBtn" onclick="toggleSidebar()">
+        <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 15a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd"/></svg>
+      </button>
+      <div class="topbar-title">Project Review Dashboard</div>
+    </div>
+    <div class="topbar-right">
+      <span class="ts">Updated <span id="ts-date"></span></span>
+      <button class="refresh-btn" onclick="location.reload()">Refresh</button>
+    </div>
+  </div>
+
+  <div id="view-dashboard" class="content">
+    
+    <!-- Top Row Layout Block: Pipeline and Leaflet Map Aligned Together -->
+    <div class="top-visualization-grid">
+      <div class="visual-left-stack">
+        <div class="kpi-strip" id="kpis"></div>
+        <div>
+          <div class="section-head"><h2>Review pipeline — status of development projects</h2></div>
+          <div class="pipeline" id="pipeline"></div>
+        </div>
+      </div>
+      
+      <div class="map-panel">
+        <h2>Project locations (OSM)</h2>
+        <div class="map-sub">Real-time geographical pipeline map.</div>
+        <div id="map-container"></div>
+        <div class="map-legend">
+          <div class="legend-item"><span class="legend-dot" style="background:#0F4C5C"></span>For HIA</div>
+          <div class="legend-item"><span class="legend-dot" style="background:#7C3AED"></span>Exemption</div>
+          <div class="legend-item"><span class="legend-dot" style="background:#059669"></span>M&E Issued</div>
+          <div class="legend-item"><span class="legend-dot" style="background:#D97706"></span>Flagged</div>
+        </div>
+
+        <!-- Integrated Dynamic Working Calendar & Commitment Desk -->
+        <div class="calendar-widget">
+          <div class="cal-ctrl">
+            <div class="cal-month-title" id="calendar-month-year">June 2026</div>
+            <div style="display:flex;gap:4px;">
+              <button class="cal-btn" onclick="adjustCalendarMonth(-1)">◀</button>
+              <button class="cal-btn" onclick="adjustCalendarMonth(1)">▶</button>
+            </div>
+          </div>
+          <div class="cal-grid" id="calendar-days-grid"></div>
+          
+          <!-- Calendar Agenda Form Interface for Add / Edit -->
+          <div id="calendar-agenda-form-box" style="display:none; background:#edf2f7; border-radius:6px; padding:10px; margin-top:8px; border:1px dashed var(--border);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+              <span style="font-size:11px; font-weight:700; color:var(--teal);">Agenda: <span id="cal-selected-date-lbl"></span></span>
+              <button type="button" onclick="closeCalendarAgendaForm()" style="background:none; border:none; font-size:14px; cursor:pointer; color:var(--slate-md);">×</button>
+            </div>
+            <input type="hidden" id="cal-form-day">
+            <input type="hidden" id="cal-form-month">
+            <input type="hidden" id="cal-form-year">
+            <div style="display:grid; grid-template-columns: 1fr 90px; gap:6px; margin-bottom:6px;">
+              <input type="text" id="cal-input-title" placeholder="Commitment details..." style="padding:4px 6px; font-size:11.5px;">
+              <select id="cal-input-tag" style="padding:4px; font-size:11.5px;">
+                <option value="review">Review</option>
+                <option value="urgent">Urgent</option>
+                <option value="meeting">Meeting</option>
+              </select>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <button type="button" id="btn-del-agenda" class="btn" onclick="deleteCalendarAgenda()" style="padding:4px 8px; font-size:11px; background:var(--red); color:#fff; display:none;">Delete</button>
+              <div style="margin-left:auto; display:flex; gap:4px;">
+                <button type="button" class="btn btn-ghost" onclick="closeCalendarAgendaForm()" style="padding:4px 8px; font-size:11px;">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveCalendarAgenda()" style="padding:4px 8px; font-size:11px; background:var(--teal);">Save</button>
+              </div>
+            </div>
+          </div>
+          
+          <div class="commitments-container" id="commitments-list-box"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Row Layout Block: Projects Registry Gains 100% Unimpeded Width -->
+    <div class="bottom-registry-box">
+      <div class="section-head"><h2>All development projects</h2></div>
+      <div style="width:100%; overflow-x:auto;">
+        <table style="width:100%; min-width:1100px;">
+          <thead><tr>
+            <th style="width:110px;">HIA Code</th>
+            <th>Project Tracking Profiles & Notes</th>
+            <th style="width:180px;">Cluster</th>
+            <th style="width:160px;">Area</th>
+            <th style="width:110px;">Type</th>
+            <th style="width:140px;">Stage</th>
+            <th style="width:150px;">With</th>
+            <th style="width:80px;">Focal</th>
+            <th style="width:90px;">Flags</th>
+            <th style="width:50px;">Edit</th>
+          </tr></thead>
+          <tbody id="proj-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+    
+  </div>
+
+  <div id="view-table" style="display:none;padding:24px">
+    <div class="section-head"><h2>All development projects — full list</h2></div>
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr><th>HIA Code</th><th>Project Tracking Profiles & Notes</th><th>Cluster</th><th>Area</th><th>Type</th><th>Stage</th><th>With</th><th>Focal</th><th>Flags</th><th>Edit</th></tr></thead>
+        <tbody id="table-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div>
+        <div class="modal-code" id="m-code"></div>
+        <h2 id="m-title">Project Details Configuration</h2>
+      </div>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      
+      <div class="field-group">
+        <label class="fl">Project Name / Title</label>
+        <input type="text" id="m-input-title" placeholder="e.g., Project Title">
+      </div>
+      <div class="field-row">
+        <div class="field-group"><label class="fl">Project Proponent</label>
+          <input type="text" id="m-input-proponent" placeholder="Proponent Enterprise">
+        </div>
+        <div class="field-group"><label class="fl">Cluster Sector</label>
+          <select id="m-input-cluster">
+            <option>Energy and Power</option>
+            <option>Public & Economic Infrastructure</option>
+            <option>Mining & Resource Extraction</option>
+            <option>Waste Management</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field-group"><label class="fl">Geographic Location Name</label>
+          <input type="text" id="m-input-area" placeholder="e.g., Province, Region">
+        </div>
+        <div class="field-group"><label class="fl">Coordinates (Latitude & Longitude)</label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+            <input type="number" step="any" id="m-input-lat" placeholder="Lat">
+            <input type="number" step="any" id="m-input-lng" placeholder="Lng">
+          </div>
+        </div>
+      </div>
+
+      <div class="tracking-stepper">
+        <div class="stepper-header-wrap">
+          <div class="stepper-title">Workflow Tracking Timestamps</div>
+          <button type="button" class="btn-snap-ts" onclick="snapCurrentTimeline()">⚡ Log Current Time</button>
+        </div>
+        <div class="step-item filled">
+          <div class="step-icon">1</div>
+          <div class="step-content">
+            <div class="step-label">Submitted by Proponent/Preparer</div>
+            <div class="step-input-wrap"><input type="datetime-local" id="m-time-submitted"></div>
+          </div>
+        </div>
+        <div class="step-item filled">
+          <div class="step-icon">2</div>
+          <div class="step-content">
+            <div class="step-label">Secretariat Forwarded to Committee</div>
+            <div class="step-input-wrap"><input type="datetime-local" id="m-time-forwarded"></div>
+          </div>
+        </div>
+        
+        <div id="m-custom-ts-container" style="display:flex;flex-direction:column;gap:6px;margin-top:4px;"></div>
+        
+        <div class="add-custom-ts-box">
+          <div>
+            <label class="fl" style="font-size:10px;color:var(--slate-md);margin-bottom:2px;">Milestone Tag Name</label>
+            <input type="text" id="m-new-ts-name" placeholder="e.g., Technical Review Completed" style="padding:5px;font-size:11.5px;">
+          </div>
+          <div>
+            <label class="fl" style="font-size:10px;color:var(--slate-md);margin-bottom:2px;">Date & Time</label>
+            <input type="datetime-local" id="m-new-ts-val" style="padding:5px;font-size:11.5px;">
+          </div>
+          <button type="button" class="btn btn-primary" onclick="addCustomTimestampEntry()" style="padding:6px 12px;font-size:11.5px;">➕ Add</button>
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field-group"><label class="fl">HIA Type</label>
+          <select id="m-type" onchange="syncStageOptions()"><option>For HIA</option><option>For Exemption</option></select>
+        </div>
+        <div class="field-group"><label class="fl">Current Stage</label>
+          <select id="m-stage"></select>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field-group"><label class="fl">Currently with</label>
+          <select id="m-with">
+            <option>HIA Secretariat</option>
+            <option>HIA Review Committee</option>
+            <option>Project Proponent / HIA Preparer</option>
+            <option>For Issuance / Decision</option>
+          </select>
+        </div>
+        <div class="field-group"><label class="fl">HIA Focal</label>
+          <select id="m-focal"><option>JMDP</option><option>LACM</option></select>
+        </div>
+      </div>
+      <div class="field-group"><label class="fl">Flags / Pending actions</label>
+        <div style="display:flex;flex-direction:column;gap:9px">
+          <label class="check-row"><input type="checkbox" id="m-nom"> Notice of Modification (NOM) issued</label>
+          <label class="check-row"><input type="checkbox" id="m-signing"> For signing by Review Committee Chair</label>
+          <label class="check-row"><input type="checkbox" id="m-hicc"> HICC / COE issued</label>
+        </div>
+      </div>
+      <div class="field-group"><label class="fl">Latest update note</label>
+        <textarea id="m-update" rows="3"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <span class="save-msg" id="m-msg"></span>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-primary" id="m-save-btn" onclick="saveProject()">Save Project Parameters</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>
+var PROJECTS=[
+  {code:"HIA-2024-0002",title:"95.2 MW Bohol In-Island Diesel Power Plant",proponent:"Mapalad Power Corporation",area:"Central Visayas: Bohol",cluster:"Energy and Power",focal:"JMDP",
+   type:"For Exemption",stage:"PHMMP",with:"HIA Review Committee",nom:false,signing:true,hicc:false,
+   update:"In PHMMP stage; under review of the HIA Review Committee Chair for approval.",lat:9.8500,lng:124.1435,
+   submittedTime:"2024-03-12T10:30",forwardedTime:"2024-03-15T14:15",customTimestamps:[]},
+  {code:"HIA-2024-0003",title:"Batangas Combined Cycle Power Plant Unit 4",proponent:"Excellent Energy Resources Inc.",area:"CALABARZON: Batangas",cluster:"Energy and Power",focal:"JMDP",
+   type:"For HIA",stage:"Screening",with:"HIA Secretariat",nom:false,signing:false,hicc:false,
+   update:"PMCJ asked for updates on the application. Letter will be issued to Project Proponent for submission.",lat:13.7577,lng:121.0547,
+   submittedTime:"2024-05-20T09:00",forwardedTime:"2024-05-22T11:00",customTimestamps:[]},
+  {code:"HIA-2025-0001",title:"60 MW Gas Turbine Power Plant",proponent:"Belgrove Power Corporation",area:"CALABARZON: Rizal",cluster:"Energy and Power",focal:"JMDP",
+   type:"For HIA",stage:"Scoping",with:"Project Proponent / HIA Preparer",nom:true,signing:false,hicc:false,
+   update:"Notice of Modification on Scoping Report was issued.",lat:14.6042,lng:121.1667,
+   submittedTime:"2025-01-10T13:45",forwardedTime:"2025-01-14T16:20",customTimestamps:[]},
+  {code:"HIA-2025-0002",title:"TVI Unit 3 Coal-Fired Power Plant Expansion",proponent:"Therma Visayas, Inc.",area:"Central Visayas: Cebu",cluster:"Energy and Power",focal:"JMDP",
+   type:"For HIA",stage:"Monitoring & Evaluation",with:"For Issuance / Decision",nom:false,signing:false,hicc:true,
+   update:"HICC issued. Physical copy turned over to Project Proponent. Cascade to Central Visayas CHD scheduled.",lat:10.3783,lng:123.6356,
+   submittedTime:"2025-02-04T08:15",forwardedTime:"2025-02-07T10:30",customTimestamps:[]},
+  {code:"HIA-2025-0003",title:"Manila Waste-to-Energy Facility",proponent:"Manila Integrated Environment Corporation",area:"NCR: Manila",cluster:"Waste Management",focal:"JMDP",
+   type:"For HIA",stage:"Scoping",with:"Project Proponent / HIA Preparer",nom:true,signing:false,hicc:false,
+   update:"Notice of Modification on Scoping Report was issued.",lat:14.5995,lng:120.9842,
+   submittedTime:"2025-03-18T11:00",forwardedTime:"2025-03-21T15:00",customTimestamps:[]},
+  {code:"HIA-2025-0004",title:"Nasipit Hybrid Energy Storage System",proponent:"Therma Marine Inc.",area:"CARAGA: Agusan del Norte",cluster:"Energy and Power",focal:"LACM",
+   type:"For Exemption",stage:"PHMMP",with:"HIA Review Committee",nom:false,signing:true,hicc:false,
+   update:"In PHMMP stage; under review of the HIA Review Committee Chair for approval.",lat:8.9742,lng:125.3378,
+   submittedTime:"2025-05-11T14:00",forwardedTime:"2025-05-15T09:30",customTimestamps:[]},
+  {code:"HIA-2025-0005",title:"EAUC Energy Storage System",proponent:"East Asia Utilities Corporation",area:"Central Visayas: Cebu",cluster:"Energy and Power",focal:"LACM",
+   type:"For Exemption",stage:"PHMMP",with:"Project Proponent / HIA Preparer",nom:false,signing:false,hicc:false,
+   update:"Project is informed to proceed with preparation of PHMMP.",lat:10.3157,lng:123.8854,
+   submittedTime:"2025-07-22T10:30",forwardedTime:"2025-07-25T13:10",customTimestamps:[]},
+  {code:"HIA-2026-0002",title:"Atimonan One Energy 2x600 MW Coal-Fired Power Plant",proponent:"Atimonan One Energy Inc.",area:"CALABARZON: Quezon",cluster:"Energy and Power",focal:"JMDP",
+   type:"For HIA",stage:"Scoping",with:"Project Proponent / HIA Preparer",nom:true,signing:false,hicc:false,
+   update:"Notice of Modification on Scoping Guide was issued.",lat:14.0042,lng:121.9236,
+   submittedTime:"2026-01-05T09:15",forwardedTime:"2026-01-08T11:45",customTimestamps:[]},
+  {code:"HIA-2026-0003",title:"Therma South Units 3 and 4 CFB Coal-Fired Power Plant",proponent:"Therma South Inc.",area:"Davao Region: Davao del Sur",cluster:"Energy and Power",focal:"JMDP",
+   type:"For HIA",stage:"Scoping",with:"HIA Review Committee",nom:false,signing:false,hicc:false,
+   update:"Scoping Guide undergoing evaluation of Primary Reviewers.",lat:7.0142,lng:125.4912,
+   submittedTime:"2026-02-14T13:00",forwardedTime:"2026-02-18T10:00",customTimestamps:[]},
+  {code:"HIA-2024-0001",title:"New Cebu International Container Port",proponent:"DOTr - Cebu Port Authority",area:"Central Visayas: Cebu",cluster:"Public & Economic Infrastructure",focal:"JMDP",
+   type:"For HIA",stage:"Screening",with:"HIA Secretariat",nom:false,signing:false,hicc:false,
+   update:"Now tagged under Development Programs.",lat:10.3250,lng:123.9220,isProgram:true,
+   submittedTime:"2024-02-01T10:00",forwardedTime:"2024-02-03T14:20",customTimestamps:[]},
+  {code:"HIA-2023-0001",title:"Valencia Nickel Mining",proponent:"Cagdianao Mining Corporation",area:"CARAGA: Dinagat Islands",cluster:"Mining & Resource Extraction",focal:"JMDP",
+   type:"For HIA",stage:"Scoping",with:"Project Proponent / HIA Preparer",nom:false,signing:false,hicc:false,
+   update:"Project is yet to submit their Scoping Report.",lat:10.1244,lng:125.6106,
+   submittedTime:"2023-11-15T11:30",forwardedTime:"2023-11-20T16:00",customTimestamps:[]},
+  {code:"HIA-2025-0006",title:"Eagle Cement Expansion — Line 4",proponent:"Eagle Cement Corporation",area:"Central Luzon: Bulacan",cluster:"Mining & Resource Extraction",focal:"LACM",
+   type:"For HIA",stage:"Scoping",with:"Project Proponent / HIA Preparer",nom:true,signing:false,hicc:false,
+   update:"Notice of Modification on Scoping Guide was issued.",lat:15.0114,lng:121.0556,
+   submittedTime:"2025-09-02T09:00",forwardedTime:"2025-09-05T14:15",customTimestamps:[]},
+  {code:"HIA-2026-0001",title:"Solid North Mineral Corporation — Quarry Expansion",proponent:"Solid North Mineral Corporation",area:"Central Luzon: Bulacan",cluster:"Mining & Resource Extraction",focal:"LACM",
+   type:"For HIA",stage:"Scoping",with:"Project Proponent / HIA Preparer",nom:true,signing:false,hicc:false,
+   update:"Notice of Modification on Scoping Guide was issued.",lat:15.0331,lng:121.0822,
+   submittedTime:"2026-01-12T10:45",forwardedTime:"2026-01-15T11:30",customTimestamps:[]},
+  {code:"HIA-2025-0007",title:"Catarman Septage Treatment Facility",proponent:"Local Government of Catarman",area:"Eastern Visayas: Northern Samar",cluster:"Waste Management",focal:"LACM",
+   type:"For Exemption",stage:"Screening",with:"HIA Secretariat",nom:false,signing:false,hicc:false,
+   update:"Now tagged under Development Programs.",lat:12.4984,lng:124.6384,isProgram:true,
+   submittedTime:"2025-10-19T08:30",forwardedTime:"2025-10-22T09:00",customTimestamps:[]},
+  {code:"HIA-2025-0008",title:"Proposed Sewage Treatment Plant and TSD Facility",proponent:"Soliman E.C. Septic Tank Disposal",area:"Eastern Visayas: Leyte",cluster:"Waste Management",focal:"LACM",
+   type:"For Exemption",stage:"PHMMP",with:"Project Proponent / HIA Preparer",nom:false,signing:false,hicc:false,
+   update:"Project is informed to proceed with preparation of PHMMP.",lat:11.2444,lng:124.9994,
+   submittedTime:"2025-11-03T14:10",forwardedTime:"2025-11-06T16:45",customTimestamps:[]}
+];
+
+// Seeded Commitment Calendar Items for Year 2026
+var COMMITMENTS=[
+  {day:16, month:5, year:2026, tag:"urgent", title:"Bohol Diesel Plant PHMMP Review Deadline"},
+  {day:20, month:5, year:2026, tag:"review", title:"Evaluate Rizal 60MW Scoping Re-submission"},
+  {day:24, month:5, year:2026, tag:"meeting", title:"Secretariat Deliberation — Waste-To-Energy"},
+  {day:18, month:5, year:2026, tag:"review", title:"Atimonan Coal Plant Technical Guide Review"}
+];
+
+var STAGES_HIA=['Screening','Scoping','HIA Report','Monitoring & Evaluation'];
+var STAGES_EXEMPT=['Screening','Scoping','PHMMP','Monitoring & Evaluation'];
+var PIPELINE_STAGES=['Screening','Scoping','HIA Report','PHMMP','Monitoring & Evaluation'];
+
+var activeFilter={focal:'ALL'};
+var editingCode=null;
+var isCreatingNew=false;
+var tempCustomTimestamps=[];
+var map, markersLayer;
+
+// State management for the localized mini calendar
+var currentCalDate = new Date(2026, 5, 14); // Target contextual timeline (June 2026)
+
+document.addEventListener('DOMContentLoaded',function(){
+  document.getElementById('ts-date').textContent=new Date().toLocaleDateString('en-PH',{year:'numeric',month:'long',day:'numeric'});
+  initOSM();
+  renderAll();
+  buildCalendarGrid();
+});
+
+function initOSM() {
+  map = L.map('map-container').setView([12.5000, 122.2000], 5.5);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 18,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+  }).addTo(map);
+  markersLayer = L.layerGroup().addTo(map);
+}
+
+function renderAll(){
+  renderKPIs();
+  renderPipeline();
+  renderTable();
+  renderOSMMarkers();
+  renderCommitmentsList();
+}
+
+function filtered(){
+  return PROJECTS.filter(function(p){ return activeFilter.focal==='ALL'||p.focal===activeFilter.focal; });
+}
+
+function renderKPIs(){
+  var ps=PROJECTS;
+  document.getElementById('kpis').innerHTML=
+    kpiHtml(ps.length,'Total Projects','')+
+    kpiHtml(ps.filter(function(p){return p.type==='For HIA'}).length,'For HIA','')+
+    kpiHtml(ps.filter(function(p){return p.type==='For Exemption'}).length,'For Exemption','')+
+    kpiHtml(ps.filter(function(p){return p.stage==='Monitoring & Evaluation'}).length,'In M&E Stage','highlight')+
+    kpiHtml(ps.filter(function(p){return p.nom||p.signing}).length,'Flagged Actions','warn');
+}
+function kpiHtml(v,l,c){return '<div class="kpi '+c+'"><div class="kpi-val">'+v+'</div><div class="kpi-lbl">'+l+'</div></div>'}
+
+function renderPipeline(){
+  var ps=filtered();
+  document.getElementById('pipeline').innerHTML=PIPELINE_STAGES.map(function(stage){
+    var items=ps.filter(function(p){return p.stage===stage && !p.isProgram});
+    var cards=items.length?items.map(function(p){
+      var cls='pcard'+(p.type==='For Exemption'?' exempt':'')+(p.stage==='Monitoring & Evaluation'?' me':'')+(p.nom||p.signing?' flagged':'');
+      return '<div class="'+cls+'" onclick="openModal(\''+p.code+'\')">'+
+        '<div class="pcard-code">'+p.code+'</div>'+
+        '<div class="pcard-name">'+p.title+'</div>'+
+        '<div class="pcard-meta">'+p.area+'</div>'+
+        '<div class="pcard-tags"><span class="tag '+(p.type==='For Exemption'?'tag-exempt':'tag-hia')+'">'+p.type+'</span></div>'+
+        '</div>';
+    }).join(''):'<div class="empty-col">No projects</div>';
+    return '<div class="stage-col"><div class="stage-head-bar"><h3>'+stage+CustomCount(items.length)+'</div><div class="stage-body">'+cards+'</div></div>';
+  }).join('');
+}
+function CustomCount(n){ return '</h3><span class="stage-count">'+n+'</span>'; }
+
+function fmtDateDisplay(dStr) {
+  if(!dStr) return '<span style="color:var(--slate-lt)">Not Logged</span>';
+  var d = new Date(dStr);
+  return d.toLocaleDateString('en-PH', {month:'short', day:'numeric'}) + " " + d.toLocaleTimeString('en-PH', {hour:'2-digit', minute:'2-digit'});
+}
+
+function renderTable(){
+  var ps = filtered();
+  var primaryProjects = ps.filter(function(x){ return !x.isProgram; });
+  var devPrograms = ps.filter(function(x){ return x.isProgram; });
+
+  function rowTemplate(p) {
+    var customLogsHtml = (p.customTimestamps || []).map(function(t){
+      return '<span>⏱️ ' + t.name + ': <strong class="ts-pill">' + fmtDateDisplay(t.time) + '</strong></span>';
+    }).join('');
+
+    return '<tr>'+
+      '<td><a class="code-link" onclick="openModal(\''+p.code+'\')">'+p.code+'</a></td>'+
+      '<td>'+
+        '<div style="font-weight:600; color:var(--slate);">'+p.title+'</div>'+
+        '<div style="font-size:11px;color:var(--slate-md);font-weight:500;">Proponent: '+p.proponent+'</div>'+
+        '<div class="proj-note-line"><strong>Update Note:</strong> '+p.update+'</div>'+
+        '<div class="proj-ts-line">'+
+          '<span>📬 Submitted: <strong class="ts-pill">'+fmtDateDisplay(p.submittedTime)+'</strong></span>'+
+          '<span>🏛️ Forwarded: <strong class="ts-pill">'+fmtDateDisplay(p.forwardedTime)+'</strong></span>'+
+          customLogsHtml +
+        '</div>'+
+      '</td>'+
+      '<td>'+p.cluster+'</td><td>'+p.area+'</td>'+
+      '<td>'+p.type+'</td>'+
+      '<td><strong>'+p.stage+'</strong></td>'+
+      '<td>'+p.with+'</td><td>'+p.focal+'</td>'+
+      '<td>'+(p.nom?'NOM ':'')+(p.signing?'Signing':'')+'</td>'+
+      '<td><button class="edit-icon-btn" onclick="openModal(\''+p.code+'\')">⚙️</button></td>'+
+      '</tr>';
+  }
+
+  var fullHtml = primaryProjects.map(rowTemplate).join('');
+  
+  if(devPrograms.length > 0) {
+    fullHtml += '<tr class="split-header-row"><td colspan="10">📋 Grouped Development Programs (Strategic Multi-Sector Frameworks)</td></tr>';
+    fullHtml += devPrograms.map(rowTemplate).join('');
+  }
+
+  document.getElementById('proj-tbody').innerHTML=fullHtml;
+  document.getElementById('table-tbody').innerHTML=fullHtml;
+}
+
+function renderOSMMarkers() {
+  if (!markersLayer) return;
+  markersLayer.clearLayers();
+  filtered().forEach(function(p){
+    if (!p.lat || !p.lng) return;
+    var marker = L.marker([p.lat, p.lng]);
+    var popupContent = '<div style="padding:2px"><strong>' + p.code + '</strong><br>' + 
+                       p.title + '<br><small style="color:#64748b">' + p.area + '</small></div>';
+    marker.bindPopup(popupContent);
+    marker.on('mouseover', function(e) { this.openPopup(); });
+    marker.on('click', function(e) { openModal(p.code); });
+    markersLayer.addLayer(marker);
+  });
+}
+
+/* Operational Calendar UI Generation Engines */
+function buildCalendarGrid() {
+  var year = currentCalDate.getFullYear();
+  var month = currentCalDate.getMonth();
+  
+  var monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  document.getElementById('calendar-month-year').textContent = monthNames[month] + " " + year;
+  
+  var firstDayIndex = new Date(year, month, 1).getDay();
+  var totalDays = new Date(year, month + 1, 0).getDate();
+  
+  var html = '<div class="cal-day-lbl">S</div><div class="cal-day-lbl">M</div><div class="cal-day-lbl">T</div><div class="cal-day-lbl">W</div><div class="cal-day-lbl">T</div><div class="cal-day-lbl">F</div><div class="cal-day-lbl">S</div>';
+  
+  for(var i=0; i<firstDayIndex; i++) {
+    html += '<div></div>';
+  }
+  
+  for(var day=1; day<=totalDays; day++) {
+    var isToday = (day===14 && month===5 && year===2026) ? 'today' : '';
+    var hasEvent = COMMITMENTS.some(function(c){return c.day===day && c.month===month && c.year===year}) ? 'has-event' : '';
+    
+    html += '<div class="cal-cell ' + isToday + ' ' + hasEvent + '" style="cursor:pointer;" onclick="selectCalendarDay(' + day + ')">' + day + '</div>';
+  }
+  
+  document.getElementById('calendar-days-grid').innerHTML = html;
+}
+
+function adjustCalendarMonth(offset) {
+  currentCalDate.setMonth(currentCalDate.getMonth() + offset);
+  closeCalendarAgendaForm();
+  buildCalendarGrid();
+  renderCommitmentsList();
+}
+
+function renderCommitmentsList() {
+  var month = currentCalDate.getMonth();
+  var year = currentCalDate.getFullYear();
+  
+  var currentMonthEvents = COMMITMENTS.filter(function(c){ return c.month === month && c.year === year; });
+  var container = document.getElementById('commitments-list-box');
+  
+  if(currentMonthEvents.length === 0) {
+    container.innerHTML = '<div style="font-size:11.5px;color:var(--slate-lt);font-style:italic;padding:8px 0;text-align:center;">No direct desk obligations recorded for this cycle.</div>';
+    return;
+  }
+  
+  container.innerHTML = currentMonthEvents.map(function(c){
+    var monthPillStr = (month+1).toString().padStart(2,'0') + '/' + c.day.toString().padStart(2,'0');
+    return '<div class="commitment-card" style="cursor:pointer;" onclick="selectCalendarDay(' + c.day + ')">' +
+      '<div class="commit-meta">' +
+        '<span class="commit-date">📅 ' + monthPillStr + ' / ' + year + '</span>' +
+        '<span class="commit-tag tag-' + c.tag + '">' + c.tag + '</span>' +
+      '</div>' +
+      '<div class="commit-title">' + c.title + '</div>' +
+    '</div>';
+  }).join('');
+}
+
+/* --- FUNCTIONS FOR HANDLING CALENDAR AGENDA MANAGEMENT --- */
+function findCommitmentIndex(day, month, year) {
+  return COMMITMENTS.findIndex(function(c) {
+    return c.day === day && c.month === month && c.year === year;
+  });
+}
+
+function selectCalendarDay(day) {
+  var month = currentCalDate.getMonth();
+  var year = currentCalDate.getFullYear();
+  
+  document.getElementById('cal-form-day').value = day;
+  document.getElementById('cal-form-month').value = month;
+  document.getElementById('cal-form-year').value = year;
+  
+  var monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  document.getElementById('cal-selected-date-lbl').textContent = monthNames[month] + " " + day + ", " + year;
+  
+  var idx = findCommitmentIndex(day, month, year);
+  if (idx !== -1) {
+    document.getElementById('cal-input-title').value = COMMITMENTS[idx].title;
+    document.getElementById('cal-input-tag').value = COMMITMENTS[idx].tag;
+    document.getElementById('btn-del-agenda').style.display = 'inline-block';
+  } else {
+    document.getElementById('cal-input-title').value = '';
+    document.getElementById('cal-input-tag').value = 'review';
+    document.getElementById('btn-del-agenda').style.display = 'none';
+  }
+  
+  document.getElementById('calendar-agenda-form-box').style.display = 'block';
+}
+
+function saveCalendarAgenda() {
+  var day = parseInt(document.getElementById('cal-form-day').value);
+  var month = parseInt(document.getElementById('cal-form-month').value);
+  var year = parseInt(document.getElementById('cal-form-year').value);
+  var title = document.getElementById('cal-input-title').value.trim();
+  var tag = document.getElementById('cal-input-tag').value;
+  
+  if (!title) return alert('Please enter a valid agenda description.');
+  
+  var idx = findCommitmentIndex(day, month, year);
+  if (idx !== -1) {
+    COMMITMENTS[idx].title = title;
+    COMMITMENTS[idx].tag = tag;
+  } else {
+    COMMITMENTS.push({ day: day, month: month, year: year, tag: tag, title: title });
+  }
+  
+  closeCalendarAgendaForm();
+  buildCalendarGrid();
+  renderCommitmentsList();
+}
+
+function deleteCalendarAgenda() {
+  var day = parseInt(document.getElementById('cal-form-day').value);
+  var month = parseInt(document.getElementById('cal-form-month').value);
+  var year = parseInt(document.getElementById('cal-form-year').value);
+  
+  var idx = findCommitmentIndex(day, month, year);
+  if (idx !== -1) {
+    COMMITMENTS.splice(idx, 1);
+  }
+  
+  closeCalendarAgendaForm();
+  buildCalendarGrid();
+  renderCommitmentsList();
+}
+
+function closeCalendarAgendaForm() {
+  document.getElementById('calendar-agenda-form-box').style.display = 'none';
+  document.getElementById('cal-input-title').value = '';
+}
+
+function snapCurrentTimeline() {
+  var now = new Date();
+  var offset = now.getTimezoneOffset() * 60000;
+  var localISOTime = (new Date(now.getTime() - offset)).toISOString().slice(0, 16);
+  var subInput = document.getElementById('m-time-submitted');
+  var fwdInput = document.getElementById('m-time-forwarded');
+  if(!subInput.value) subInput.value = localISOTime;
+  else fwdInput.value = localISOTime;
+}
+
+function addCustomTimestampEntry() {
+  var nameInp = document.getElementById('m-new-ts-name');
+  var valInp = document.getElementById('m-new-ts-val');
+  var name = nameInp.value.trim();
+  var time = valInp.value;
+  
+  if(!name || !time) return alert('Please enter both a Milestone Name and Date/Time.');
+  
+  tempCustomTimestamps.push({ name: name, time: time });
+  nameInp.value = '';
+  valInp.value = '';
+  renderCustomTimestampsList();
+}
+
+function deleteCustomTimestampRow(idx) {
+  tempCustomTimestamps.splice(idx, 1);
+  renderCustomTimestampsList();
+}
+
+function renderCustomTimestampsList() {
+  var container = document.getElementById('m-custom-ts-container');
+  container.innerHTML = tempCustomTimestamps.map(function(t, idx){
+    return '<div class="custom-ts-row">' +
+      '<span class="custom-ts-label">⏱️ ' + t.name + '</span>' +
+      '<div>' +
+        '<span class="custom-ts-val">' + fmtDateDisplay(t.time) + '</span>' +
+        '<button type="button" class="btn-del-custom-ts" onclick="deleteCustomTimestampRow(' + idx + ')">×</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function openNewProjectModal() {
+  isCreatingNew = true; editingCode = null;
+  tempCustomTimestamps = [];
+  var nextCode = "HIA-2026-00" + (PROJECTS.length + 1);
+  
+  document.getElementById('m-code').textContent = nextCode;
+  document.getElementById('m-title').textContent = "Register New Development Project";
+  document.getElementById('m-input-title').value = '';
+  document.getElementById('m-input-proponent').value = '';
+  document.getElementById('m-input-cluster').value = 'Energy and Power';
+  document.getElementById('m-input-area').value = '';
+  document.getElementById('m-input-lat').value = 12.87;
+  document.getElementById('m-input-lng').value = 121.77;
+  document.getElementById('m-time-submitted').value = '';
+  document.getElementById('m-time-forwarded').value = '';
+  
+  document.getElementById('m-type').value = 'For HIA';
+  syncStageOptions();
+  document.getElementById('m-focal').value = 'JMDP';
+  document.getElementById('m-with').value = 'HIA Secretariat';
+  document.getElementById('m-nom').checked = false;
+  document.getElementById('m-signing').checked = false;
+  document.getElementById('m-hicc').checked = false;
+  document.getElementById('m-update').value = 'Project application logged into pipeline storage.';
+  
+  renderCustomTimestampsList();
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function openModal(code){
+  isCreatingNew = false;
+  var p=PROJECTS.find(function(x){return x.code===code});
+  if(!p)return;
+  editingCode=code;
+  tempCustomTimestamps = JSON.parse(JSON.stringify(p.customTimestamps || []));
+  
+  document.getElementById('m-code').textContent=p.code;
+  document.getElementById('m-title').textContent="Modify Evaluation Parameters";
+  document.getElementById('m-input-title').value = p.title;
+  document.getElementById('m-input-proponent').value = p.proponent;
+  document.getElementById('m-input-cluster').value = p.cluster;
+  document.getElementById('m-input-area').value = p.area;
+  document.getElementById('m-input-lat').value = p.lat;
+  document.getElementById('m-input-lng').value = p.lng;
+  
+  document.getElementById('m-time-submitted').value = p.submittedTime || "";
+  document.getElementById('m-time-forwarded').value = p.forwardedTime || "";
+  
+  document.getElementById('m-type').value=p.type;
+  syncStageOptions();
+  document.getElementById('m-stage').value=p.stage;
+  document.getElementById('m-with').value=p.with;
+  document.getElementById('m-focal').value=p.focal;
+  document.getElementById('m-nom').checked=p.nom;
+  document.getElementById('m-signing').checked=p.signing;
+  document.getElementById('m-hicc').checked=p.hicc;
+  document.getElementById('m-update').value=p.update;
+  
+  renderCustomTimestampsList();
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function closeModal(e){ document.getElementById('modal-overlay').classList.remove('open'); }
+
+function syncStageOptions(){
+  var type=document.getElementById('m-type').value;
+  var sel=document.getElementById('m-stage');
+  var arr=type==='For Exemption'?STAGES_EXEMPT:STAGES_HIA;
+  sel.innerHTML=arr.map(function(s){return '<option>'+s+'</option>'}).join('');
+}
+
+function saveProject(){
+  var inputTitle = document.getElementById('m-input-title').value.trim();
+  if (!inputTitle) return alert('Please input a valid project title.');
+
+  var subTime = document.getElementById('m-time-submitted').value;
+  var fwdTime = document.getElementById('m-time-forwarded').value;
+  var isProg = inputTitle.toLowerCase().includes('program') || document.getElementById('m-update').value.toLowerCase().includes('program');
+
+  if (isCreatingNew) {
+    PROJECTS.unshift({
+      code: document.getElementById('m-code').textContent,
+      title: inputTitle,
+      proponent: document.getElementById('m-input-proponent').value.trim() || 'External Proponent',
+      cluster: document.getElementById('m-input-cluster').value,
+      area: document.getElementById('m-input-area').value.trim() || 'Philippines',
+      lat: parseFloat(document.getElementById('m-input-lat').value) || 12.87,
+      lng: parseFloat(document.getElementById('m-input-lng').value) || 121.77,
+      type: document.getElementById('m-type').value,
+      stage: document.getElementById('m-stage').value,
+      with: document.getElementById('m-with').value,
+      focal: document.getElementById('m-focal').value,
+      nom: document.getElementById('m-nom').checked,
+      signing: document.getElementById('m-signing').checked,
+      hicc: document.getElementById('m-hicc').checked,
+      update: document.getElementById('m-update').value,
+      submittedTime: subTime,
+      forwardedTime: fwdTime,
+      customTimestamps: tempCustomTimestamps,
+      isProgram: isProg
+    });
+  } else {
+    var p=PROJECTS.find(function(x){return x.code===editingCode});
+    if(p) {
+      p.title = inputTitle;
+      p.proponent = document.getElementById('m-input-proponent').value.trim();
+      p.cluster = document.getElementById('m-input-cluster').value;
+      p.area = document.getElementById('m-input-area').value.trim();
+      p.lat = parseFloat(document.getElementById('m-input-lat').value) || p.lat;
+      p.lng = parseFloat(document.getElementById('m-input-lng').value) || p.lng;
+      p.submittedTime = subTime;
+      p.forwardedTime = fwdTime;
+      p.type=document.getElementById('m-type').value;
+      p.stage=document.getElementById('m-stage').value;
+      p.with=document.getElementById('m-with').value;
+      p.focal=document.getElementById('m-focal').value;
+      p.nom=document.getElementById('m-nom').checked;
+      p.signing=document.getElementById('m-signing').checked;
+      p.hicc=document.getElementById('m-hicc').checked;
+      p.update=document.getElementById('m-update').value;
+      p.customTimestamps = tempCustomTimestamps;
+      p.isProgram = isProg || p.isProgram;
+    }
+  }
+  renderAll();
+  closeModal();
+}
+
+function filterFocal(f,el){
+  document.querySelectorAll('[data-focal]').forEach(function(i){i.classList.remove('active')});
+  el.classList.add('active');
+  activeFilter.focal=f;
+  renderAll();
+}
+function toggleSidebar(){
+  document.getElementById('sidebar').classList.toggle('collapsed');
+  document.getElementById('main').classList.toggle('full');
+}
+function showView(v,el){
+  document.getElementById('view-dashboard').style.display = (v==='dashboard') ? 'flex' : 'none';
+  document.getElementById('view-table').style.display = (v==='table') ? 'block' : 'none';
+}
+</script>
+</body>
+</html>
